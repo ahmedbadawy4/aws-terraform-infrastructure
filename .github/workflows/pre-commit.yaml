@@ -4,6 +4,10 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -50,5 +54,6 @@ jobs:
           sudo install -m 0755 terraform-docs /usr/local/bin/terraform-docs
       - uses: pre-commit/action@v3.0.1
         with:
-          # Check only the files changed in the pull request
-          extra_args: --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}
+          # A pull request checks only the files it changes. A push to main and a
+          # manual run check every file.
+          extra_args: ${{ github.event_name == 'pull_request' && format('--from-ref {0} --to-ref {1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || '--all-files' }}

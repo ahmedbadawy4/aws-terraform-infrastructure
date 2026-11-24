@@ -15,7 +15,7 @@ This is a reference setup to learn from and adapt. It is not a production setup.
 | [atlantis-server/ansible](./atlantis-server/ansible) | Playbook that installs Docker and runs Atlantis, plus `files/repos.yaml`, the server-side Atlantis config. |
 | [atlantis.yaml](./atlantis.yaml) | Atlantis repo config: four projects (dev and prod, vpc and eks), with vpc planned before eks. |
 | [.github/workflows/infra-pipeline.yaml](./.github/workflows/infra-pipeline.yaml) | Manual Terragrunt plan or apply for one folder. |
-| [.github/workflows/pre-commit.yaml](./.github/workflows/pre-commit.yaml) | Runs the pre-commit hooks on pull requests. |
+| [.github/workflows/pre-commit.yaml](./.github/workflows/pre-commit.yaml) | Runs the pre-commit hooks on pull requests, on pushes to `main` and on demand. |
 | [.pre-commit-config.yaml](./.pre-commit-config.yaml) | The hooks: Terragrunt and Terraform format, validate, tflint, terraform-docs, YAML check, and secret scans. |
 | [example](./example) | The same two modules used directly with Terraform, without Terragrunt. |
 | [makefile](./makefile) | Targets `atlantis-infra`, `atlantis-config` and `clean`. |
@@ -130,7 +130,7 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-`./pre-commit-script.sh` does the same one folder at a time. The same hooks run on every pull request through the [pre-commit workflow](./.github/workflows/pre-commit.yaml), which checks only the files the pull request changed.
+`./pre-commit-script.sh` does the same one folder at a time. The same hooks run through the [pre-commit workflow](./.github/workflows/pre-commit.yaml). On a pull request it checks only the files the pull request changed. On a push to `main`, or when you start it by hand from the Actions tab, it checks every file.
 
 ## How to destroy
 
