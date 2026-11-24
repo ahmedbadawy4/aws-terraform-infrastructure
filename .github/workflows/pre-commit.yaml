@@ -4,22 +4,51 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
+
+permissions:
+  contents: read
+
 env:
-  SKIP: check-git-config-email
+  TERRAFORM_VERSION: "1.4.6"
+  TERRAGRUNT_VERSION: "v0.67.14"
+  TERRAFORM_DOCS_VERSION: "v0.19.0"
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-    - name: Install Terragrunt
-      run: |
-        TG_VERSION=$(curl -s https://api.github.com/repos/gruntwork-io/terragrunt/releases/latest | jq -r .tag_name)
-        curl -L https://github.com/gruntwork-io/terragrunt/releases/download/$TG_VERSION/terragrunt_linux_amd64 -o /usr/local/bin/terragrunt
-        chmod +x /usr/local/bin/terragrunt
-    - uses: terraform-linters/setup-tflint@v4
-    - id: changed-files
-      uses: tj-actions/changed-files@v45
-    - uses: pre-commit/action@v3.0.1
-      with:
-        extra_args: --files ${{ steps.changed-files.outputs.all_changed_files }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # pre-commit needs the full history to compare the two commits
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@v6
+      - name: Install Terragrunt
+        run: |
+          BASE_URL="https://github.com/gruntwork-io/terragrunt/releases/download/${TERRAGRUNT_VERSION}"
+          curl -fsSL -o terragrunt "${BASE_URL}/terragrunt_linux_amd64"
+          curl -fsSL -o SHA256SUMS "${BASE_URL}/SHA256SUMS"
+          EXPECTED=$(grep -E '[ *]terragrunt_linux_amd64$' SHA256SUMS | cut -d ' ' -f 1)
+          echo "${EXPECTED}  terragrunt" | sha256sum --check
+          sudo install -m 0755 terragrunt /usr/local/bin/terragrunt
+      - name: Install terraform-docs
+        run: |
+          BASE_URL="https://github.com/terraform-docs/terraform-docs/releases/download/${TERRAFORM_DOCS_VERSION}"
+          ARCHIVE="terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz"
+          curl -fsSL -o "${ARCHIVE}" "${BASE_URL}/${ARCHIVE}"
+          curl -fsSL -o terraform-docs.sha256sum "${BASE_URL}/terraform-docs-${TERRAFORM_DOCS_VERSION}.sha256sum"
+          EXPECTED=$(grep -F "${ARCHIVE}" terraform-docs.sha256sum | cut -d ' ' -f 1)
+          echo "${EXPECTED}  ${ARCHIVE}" | sha256sum --check
+          tar -xzf "${ARCHIVE}" terraform-docs
+          sudo install -m 0755 terraform-docs /usr/local/bin/terraform-docs
+      - uses: pre-commit/action@v3.0.1
+        with:
+          # Check only the files changed in the pull request
+          extra_args: --from-ref ${{ github.event.pull_request.base.sha }} --to-ref ${{ github.event.pull_request.head.sha }}

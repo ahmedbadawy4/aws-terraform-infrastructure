@@ -1,15 +1,53 @@
-automerge: false
-parallel_apply: true
-parallel_plan: true
-projects:
-- autoplan:
-    enabled: true
-    when_modified:
-    - '*.hcl'
-  dir: aws/dev/eks
-- autoplan:
-    enabled: true
-    when_modified:
-    - '*.hcl'
-  dir: aws/dev/vpc
 version: 3
+automerge: false
+parallel_plan: true
+parallel_apply: true
+projects:
+  - name: dev-vpc
+    dir: aws/dev/vpc
+    execution_order_group: 1
+    autoplan:
+      enabled: true
+      when_modified:
+        - "*.hcl"
+        - "*.yaml"
+        - "../*.yaml"
+        - "../../*.yaml"
+        - "../../terragrunt.hcl"
+        - "../../../modules/vpc/**/*.tf"
+  - name: dev-eks
+    dir: aws/dev/eks
+    execution_order_group: 2
+    autoplan:
+      enabled: true
+      when_modified:
+        - "*.hcl"
+        - "*.yaml"
+        - "../*.yaml"
+        - "../../*.yaml"
+        - "../../terragrunt.hcl"
+        - "../../../modules/eks/**/*.tf"
+  - name: prod-vpc
+    dir: aws/prod/vpc
+    execution_order_group: 1
+    autoplan:
+      enabled: true
+      when_modified:
+        - "*.hcl"
+        - "*.yaml"
+        - "../*.yaml"
+        - "../../*.yaml"
+        - "../../terragrunt.hcl"
+        - "../../../modules/vpc/**/*.tf"
+  - name: prod-eks
+    dir: aws/prod/eks
+    execution_order_group: 2
+    autoplan:
+      enabled: true
+      when_modified:
+        - "*.hcl"
+        - "*.yaml"
+        - "../*.yaml"
+        - "../../*.yaml"
+        - "../../terragrunt.hcl"
+        - "../../../modules/eks/**/*.tf"

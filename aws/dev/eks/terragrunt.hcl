@@ -2,23 +2,31 @@ terraform {
   source = "../../../modules/eks"
 }
 
-dependency "vpc" {
-  config_path = "../vpc"
-}
-
 include {
   path = find_in_parent_folders()
 }
 
+dependency "vpc" {
+  config_path = "../vpc"
+
+  # Lets init, validate and plan run before the VPC exists. Apply always uses the real outputs.
+  mock_outputs = {
+    vpc_id          = "vpc-00000000"
+    private_subnets = ["subnet-00000000", "subnet-00000001"]
+  }
+
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
+}
 
 locals {
   account_vars     = yamldecode(file(find_in_parent_folders("account.yaml", find_in_parent_folders("empty.yaml"))))
   environment_vars = yamldecode(file(find_in_parent_folders("env.yaml", find_in_parent_folders("empty.yaml"))))
-  config_vars      = yamldecode(file(find_in_parent_folders("config.yaml", find_in_parent_folders("empty.yaml"))))
+  # config.yaml sits next to this file. find_in_parent_folders() only looks in parent folders.
+  config_vars = yamldecode(file("${get_terragrunt_dir()}/config.yaml"))
 }
 
 inputs = {
-  aws_region          = var.aws_region
+  aws_region          = local.account_vars.aws_region
   environment         = local.environment_vars.environment
   cluster_name        = local.config_vars.cluster_name
   cluster_version     = local.config_vars.cluster_version

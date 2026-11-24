@@ -28,7 +28,7 @@ module "eks" {
       principal_arn     = var.admin_principal_arn
       policy_associations = {
         admin_access = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterPolicy"
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
           access_scope = {
             namespaces = var.admin_access_scope
             type       = "namespace"
@@ -40,7 +40,7 @@ module "eks" {
       kubernetes_groups = ["dev-group"]
       principal_arn     = var.developer_principal_arn
       policy_associations = {
-        admin_access = {
+        developer_access = {
           policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
           access_scope = {
             namespaces = var.developer_access_scope

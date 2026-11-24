@@ -1,72 +1,137 @@
 ---
 - name: Install and configure Atlantis on EC2
   hosts: atlantis
-  become: yes
+  become: true
   vars:
-    atlantis_github_user: "<your-github-username>"
-    atlantis_github_token: "<your-github-token>"
-    atlantis_repo_allowlist: "github.com/<your-repo>"
+    atlantis_version: "v0.49.0"
+    terragrunt_version: "v0.67.14"
+    terraform_version: "1.4.6"
+    atlantis_data_dir: /mnt/atlantis
+    atlantis_config_dir: /opt/atlantis
+    # Secrets are read from the environment of the machine that runs Ansible. They are never stored in the repository.
+    atlantis_github_user: "{{ lookup('env', 'ATLANTIS_GH_USER') }}"
+    atlantis_github_token: "{{ lookup('env', 'ATLANTIS_GH_TOKEN') }}"
+    atlantis_webhook_secret: "{{ lookup('env', 'ATLANTIS_GH_WEBHOOK_SECRET') }}"
+    atlantis_repo_allowlist: "{{ lookup('env', 'ATLANTIS_REPO_ALLOWLIST') }}"
 
   tasks:
 
+    - name: Check that the required environment variables are set
+      ansible.builtin.assert:
+        that:
+          - atlantis_github_user | length > 0
+          - atlantis_github_token | length > 0
+          - atlantis_webhook_secret | length > 0
+          - atlantis_repo_allowlist | length > 0
+        fail_msg: >-
+          Set ATLANTIS_GH_USER, ATLANTIS_GH_TOKEN, ATLANTIS_GH_WEBHOOK_SECRET
+          and ATLANTIS_REPO_ALLOWLIST before running this playbook.
+      delegate_to: localhost
+      become: false
+      run_once: true
+
     - name: Update the package manager cache
-      ansible.builtin.yum:
+      ansible.builtin.dnf:
         name: "*"
         state: latest
 
-    - name: Install dependencies (Docker, Git)
-      ansible.builtin.yum:
+    - name: Install dependencies (Docker, Git, pip)
+      ansible.builtin.dnf:
         name:
           - docker
           - git
+          - python3-pip
+        state: present
+
+    - name: Install the Docker SDK for Python (needed by the community.docker modules)
+      ansible.builtin.pip:
+        name: docker
         state: present
 
     - name: Start and enable Docker service
       ansible.builtin.systemd:
         name: docker
         state: started
-        enabled: yes
+        enabled: true
 
     - name: Add ec2-user to the docker group
       ansible.builtin.user:
         name: ec2-user
         groups: docker
-        append: yes
+        append: true
+
+    - name: Create a directory for the Atlantis binaries
+      ansible.builtin.file:
+        path: "{{ atlantis_config_dir }}/bin"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Create a directory for Atlantis data
+      ansible.builtin.file:
+        path: "{{ atlantis_data_dir }}"
+        state: directory
+        owner: "100"
+        group: "1000"
+        mode: "0755"
+
+    - name: Download Terragrunt (Atlantis has no Terragrunt in its image)
+      ansible.builtin.get_url:
+        url: "https://github.com/gruntwork-io/terragrunt/releases/download/{{ terragrunt_version }}/terragrunt_linux_amd64"
+        dest: "{{ atlantis_config_dir }}/bin/terragrunt"
+        checksum: "sha256:https://github.com/gruntwork-io/terragrunt/releases/download/{{ terragrunt_version }}/SHA256SUMS"
+        owner: root
+        group: root
+        mode: "0755"
+      register: atlantis_terragrunt
+
+    - name: Copy the Atlantis server-side repo config
+      ansible.builtin.copy:
+        src: repos.yaml
+        dest: "{{ atlantis_config_dir }}/repos.yaml"
+        owner: root
+        group: root
+        mode: "0644"
+      register: atlantis_repo_config
 
     - name: Pull the Atlantis Docker image
       community.docker.docker_image:
         name: runatlantis/atlantis
-        tag: latest
+        tag: "{{ atlantis_version }}"
         source: pull
-
-    - name: Create a directory for Atlantis data
-      ansible.builtin.file:
-        path: /mnt/atlantis
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
 
     - name: Run Atlantis Docker container
       community.docker.docker_container:
         name: atlantis
-        image: runatlantis/atlantis:latest
+        image: "runatlantis/atlantis:{{ atlantis_version }}"
         state: started
         restart_policy: always
+        restart: "{{ atlantis_repo_config.changed or atlantis_terragrunt.changed }}"
         published_ports:
           - "80:4141"
         volumes:
-          - /mnt/atlantis:/atlantis
+          - "{{ atlantis_data_dir }}:/atlantis"
+          - "{{ atlantis_config_dir }}/repos.yaml:/etc/atlantis/repos.yaml:ro"
+          - "{{ atlantis_config_dir }}/bin/terragrunt:/usr/local/bin/terragrunt:ro"
         env:
+          ATLANTIS_DATA_DIR: /atlantis
+          ATLANTIS_REPO_CONFIG: /etc/atlantis/repos.yaml
+          ATLANTIS_DEFAULT_TF_VERSION: "v{{ terraform_version }}"
           ATLANTIS_GH_USER: "{{ atlantis_github_user }}"
           ATLANTIS_GH_TOKEN: "{{ atlantis_github_token }}"
-          ATLANTIS_GH_REPO_ALLOWLIST: "{{ atlantis_repo_allowlist }}"
+          ATLANTIS_GH_WEBHOOK_SECRET: "{{ atlantis_webhook_secret }}"
+          ATLANTIS_REPO_ALLOWLIST: "{{ atlantis_repo_allowlist }}"
+      no_log: true
 
-    - name: Ensure Docker container is running
+    - name: Read the Atlantis container state
       community.docker.docker_container_info:
         name: atlantis
       register: atlantis_container
 
-    - name: Debug Atlantis container information
-      ansible.builtin.debug:
-        msg: "{{ atlantis_container }}"
+    - name: Check that the Atlantis container is running
+      ansible.builtin.assert:
+        that:
+          - atlantis_container.exists
+          - atlantis_container.container.State.Running
+        fail_msg: The Atlantis container is down. Read its logs on the server with "docker logs atlantis".

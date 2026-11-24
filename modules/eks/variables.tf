@@ -75,11 +75,11 @@ variable "access_entries" {
   Example:
   access_entries = {
     dev = {
-      kubernetes_groups = ["system:masters"]
+      kubernetes_groups = ["dev-group"]
       principal_arn     = "arn:aws:iam::123456789012:role/developer-role"
       policy_associations = {
         read_only = {
-          policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
           access_scope = {
             namespaces = ["dev"]
             type       = "namespace"
@@ -88,13 +88,13 @@ variable "access_entries" {
       }
     }
     admin = {
-      kubernetes_groups = ["system:masters"]
+      kubernetes_groups = ["masters"]
       principal_arn     = "arn:aws:iam::123456789012:role/admin-role"
       policy_associations = {
         admin_access = {
-          policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
           access_scope = {
-            namespaces = ["*"]
+            namespaces = ["default"]
             type       = "namespace"
           }
         }
@@ -155,6 +155,7 @@ variable "node_security_group_enable_recommended_rules" {
 variable "node_security_group_additional_rules" {
   description = "Additional rules for the node security group"
   type = list(object({
+    type        = optional(string, "ingress")
     from_port   = number
     to_port     = number
     protocol    = string
@@ -164,7 +165,7 @@ variable "node_security_group_additional_rules" {
 }
 
 variable "authentication_mode" {
-  description = "The authentication mode to use for the cluster. Defaults to IAM."
+  description = "The authentication mode to use for the cluster. Defaults to API_AND_CONFIG_MAP."
   type        = string
   default     = "API_AND_CONFIG_MAP"
 }

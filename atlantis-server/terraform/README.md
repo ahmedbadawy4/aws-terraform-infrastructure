@@ -1,55 +1,68 @@
+# Atlantis server (Terraform)
+
+Creates one EC2 instance for [Atlantis](https://www.runatlantis.io/). The Ansible playbook in `../ansible` then installs Docker and starts the Atlantis container.
+
+## What it creates
+
+- An Amazon Linux 2023 instance (`t3.small` by default) in the default VPC of the chosen region. It uses IMDSv2 only and an encrypted 30 GB gp3 root volume.
+- A security group: HTTP (80) from `sg_cidr_blocks`, SSH (22) from `ssh_cidr_blocks`, all outbound traffic.
+- An IAM role and instance profile. The inline policy allows S3, DynamoDB and EC2. Attach more policies, for example one for EKS, with `additional_policy_arns`.
+
+## How to use it
+
+1. Replace the backend placeholders in `config.tf` with your state bucket, key, region and lock table.
+2. Copy `terraform.tfvars.example` to `terraform.tfvars` and fill it in.
+3. From the repository root, run `make atlantis-infra`. It runs `terraform init` and `terraform apply`, then saves the public IP to `ec2_ip.txt`.
+4. Run `make atlantis-config PRIVATE_KEY=<path-to-key.pem>` to configure the server with Ansible. See the root README for the environment variables the playbook needs.
+
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.3 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.4 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 5.0 |
 
 ## Providers
 
-No providers.
+| Name | Version |
+|------|---------|
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 5.0 |
 
 ## Modules
 
-| Name | Source | Version |
-|------|--------|---------|
-| <a name="module_eks"></a> [eks](#module\_eks) | terraform-aws-modules/eks/aws | ~> 20.0 |
+No modules.
 
 ## Resources
 
-No resources.
+| Name | Type |
+|------|------|
+| [aws_iam_instance_profile.atlantis_profile](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile) | resource |
+| [aws_iam_role.atlantis_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.atlantis_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy_attachment.additional](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_instance.atlantis](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance) | resource |
+| [aws_security_group.atlantis_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_ami.amazon_linux_2023](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ami) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_access_entries"></a> [access\_entries](#input\_access\_entries) | Cluster access entries<br/>  Example:<br/>  access\_entries = {<br/>    dev = {<br/>      kubernetes\_groups = ["system:masters"]<br/>      principal\_arn     = "arn:aws:iam::123456789012:role/developer-role"<br/>      policy\_associations = {<br/>        read\_only = {<br/>          policy\_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"<br/>          access\_scope = {<br/>            namespaces = ["dev"]<br/>            type       = "namespace"<br/>          }<br/>        }<br/>      }<br/>    }<br/>    admin = {<br/>      kubernetes\_groups = ["system:masters"]<br/>      principal\_arn     = "arn:aws:iam::123456789012:role/admin-role"<br/>      policy\_associations = {<br/>        admin\_access = {<br/>          policy\_arn = "arn:aws:iam::aws:policy/AdministratorAccess"<br/>          access\_scope = {<br/>            namespaces = ["*"]<br/>            type       = "namespace"<br/>          }<br/>        }<br/>      }<br/>    }<br/>  } | <pre>map(object({<br/>    kubernetes_groups = list(string)<br/>    principal_arn     = string<br/>    policy_associations = map(object({<br/>      policy_arn = string<br/>      access_scope = object({<br/>        namespaces = list(string)<br/>        type       = string<br/>      })<br/>    }))<br/>  }))</pre> | `{}` | no |
-| <a name="input_authentication_mode"></a> [authentication\_mode](#input\_authentication\_mode) | The authentication mode to use for the cluster. Defaults to IAM. | `string` | `"API_AND_CONFIG_MAP"` | no |
-| <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | the AWS region | `string` | n/a | yes |
-| <a name="input_cluster_addons"></a> [cluster\_addons](#input\_cluster\_addons) | the new cluster addons | `map(any)` | <pre>{<br/>  "coredns": true,<br/>  "eks-pod-identity-agent": true,<br/>  "kube-proxy": true,<br/>  "vpc-cni": true<br/>}</pre> | no |
-| <a name="input_cluster_endpoint_public_access"></a> [cluster\_endpoint\_public\_access](#input\_cluster\_endpoint\_public\_access) | Indicates whether or not the Amazon EKS public API server endpoint is enabled. Default is public access enabled. | `bool` | `true` | no |
-| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | the new cluster name | `string` | n/a | yes |
-| <a name="input_cluster_version"></a> [cluster\_version](#input\_cluster\_version) | the new cluster version | `string` | n/a | yes |
-| <a name="input_control_plane_subnet_ids"></a> [control\_plane\_subnet\_ids](#input\_control\_plane\_subnet\_ids) | control\_plane\_subnet\_ids | `list(string)` | `[]` | no |
-| <a name="input_create_access_entries"></a> [create\_access\_entries](#input\_create\_access\_entries) | Indicates whether or not the cluster access should be created. | `bool` | `true` | no |
-| <a name="input_create_eks_managed_node_groups"></a> [create\_eks\_managed\_node\_groups](#input\_create\_eks\_managed\_node\_groups) | Indicates whether or not the node groups should be created. | `bool` | `true` | no |
-| <a name="input_eks_managed_node_groups"></a> [eks\_managed\_node\_groups](#input\_eks\_managed\_node\_groups) | Map of EKS managed node groups examples:<br/>    eks\_managed\_node\_groups = {<br/>        main = {<br/>        ami\_type       = "AL2023\_x86\_64\_STANDARD" # Starting on 1.30, AL2023 is the default AMI type for EKS managed node groups<br/>        instance\_types = ["m5.large"]<br/>        min\_size       = 2<br/>        max\_size       = 10<br/>        desired\_size   = 2<br/>        }<br/>    } | <pre>map(object({<br/>    ami_type       = string<br/>    instance_types = list(string)<br/>    min_size       = number<br/>    max_size       = number<br/>    desired_size   = number<br/>  }))</pre> | `{}` | no |
-| <a name="input_enable_cluster_creator_admin_permissions"></a> [enable\_cluster\_creator\_admin\_permissions](#input\_enable\_cluster\_creator\_admin\_permissions) | Indicates whether or not the current caller identity should be added as an administrator to the cluster. | `bool` | `true` | no |
+| <a name="input_additional_policy_arns"></a> [additional\_policy\_arns](#input\_additional\_policy\_arns) | Extra IAM policy ARNs to attach to the Atlantis instance role, for example a policy that allows managing EKS. | `list(string)` | `[]` | no |
+| <a name="input_aws_region"></a> [aws\_region](#input\_aws\_region) | the AWS region | `string` | `"eu-west-1"` | no |
+| <a name="input_aws_tags"></a> [aws\_tags](#input\_aws\_tags) | the AWS tags to apply to all resources | `map(any)` | `{}` | no |
+| <a name="input_business_unit"></a> [business\_unit](#input\_business\_unit) | the business unit name | `string` | `"SRE"` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | the environment name | `string` | n/a | yes |
-| <a name="input_instance_types"></a> [instance\_types](#input\_instance\_types) | instance types | `list(string)` | <pre>[<br/>  "m5.xlarge"<br/>]</pre> | no |
-| <a name="input_node_security_group_additional_rules"></a> [node\_security\_group\_additional\_rules](#input\_node\_security\_group\_additional\_rules) | Additional rules for the node security group | <pre>list(object({<br/>    from_port   = number<br/>    to_port     = number<br/>    protocol    = string<br/>    cidr_blocks = list(string)<br/>  }))</pre> | `[]` | no |
-| <a name="input_node_security_group_enable_recommended_rules"></a> [node\_security\_group\_enable\_recommended\_rules](#input\_node\_security\_group\_enable\_recommended\_rules) | Indicates whether or not the recommended rules should be added to the node security group. | `bool` | `true` | no |
-| <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | subnet\_ids | `list(string)` | n/a | yes |
-| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | vpc\_id | `string` | n/a | yes |
+| <a name="input_instance_type"></a> [instance\_type](#input\_instance\_type) | EC2 instance type | `string` | `"t3.small"` | no |
+| <a name="input_sg_cidr_blocks"></a> [sg\_cidr\_blocks](#input\_sg\_cidr\_blocks) | CIDR blocks allowed to reach Atlantis on port 80. GitHub sends webhooks from its published IP ranges, so restrict this where possible. | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
+| <a name="input_ssh_cidr_blocks"></a> [ssh\_cidr\_blocks](#input\_ssh\_cidr\_blocks) | CIDR blocks allowed to reach SSH on port 22. Ansible needs this to configure the server. | `list(string)` | n/a | yes |
+| <a name="input_ssh_key_name"></a> [ssh\_key\_name](#input\_ssh\_key\_name) | Name of the SSH key pair for accessing EC2 | `string` | n/a | yes |
+| <a name="input_team"></a> [team](#input\_team) | the team name | `string` | `"SRE"` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_cluster_arn"></a> [cluster\_arn](#output\_cluster\_arn) | n/a |
-| <a name="output_cluster_security_group_id"></a> [cluster\_security\_group\_id](#output\_cluster\_security\_group\_id) | n/a |
-| <a name="output_eks_cluster_certificat_authority"></a> [eks\_cluster\_certificat\_authority](#output\_eks\_cluster\_certificat\_authority) | n/a |
-| <a name="output_eks_cluster_endpoint"></a> [eks\_cluster\_endpoint](#output\_eks\_cluster\_endpoint) | n/a |
-| <a name="output_node_security_group_id"></a> [node\_security\_group\_id](#output\_node\_security\_group\_id) | n/a |
+| <a name="output_atlantis_server_public_ip"></a> [atlantis\_server\_public\_ip](#output\_atlantis\_server\_public\_ip) | The public IP of the Atlantis server |
 <!-- END OF PRE-COMMIT-TERRAFORM DOCS HOOK -->

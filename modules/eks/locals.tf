@@ -16,7 +16,7 @@ locals {
   }
   eks_managed_node_groups = {
     for node_group_key, node_group in var.eks_managed_node_groups : node_group_key => {
-      ami_type       = lookup(node_group, "ami_type", "AL2_x86_64")
+      ami_type       = lookup(node_group, "ami_type", "AL2023_x86_64_STANDARD")
       instance_types = node_group.instance_types
       min_size       = node_group.min_size
       max_size       = node_group.max_size
@@ -24,7 +24,8 @@ locals {
     }
   }
   node_security_group_additional_rules = {
-    for idx, rule in var.node_security_group_additional_rules : idx => {
+    for idx, rule in var.node_security_group_additional_rules : "additional-${idx}" => {
+      type        = rule.type
       from_port   = rule.from_port
       to_port     = rule.to_port
       protocol    = rule.protocol

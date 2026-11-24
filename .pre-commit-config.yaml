@@ -20,7 +20,6 @@ repos:
       - id: check-merge-conflict
       - id: end-of-file-fixer
       - id: check-yaml
-      - id: check-merge-conflict
       - id: detect-aws-credentials
         args:
           - '--allow-missing-credentials'

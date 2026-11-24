@@ -34,7 +34,7 @@ variable "cluster_name" {
 variable "cluster_version" {
   description = "the new cluster version"
   type        = string
-  default     = "1.31"
+  default     = "1.35"
 }
 
 variable "aws_tags" {

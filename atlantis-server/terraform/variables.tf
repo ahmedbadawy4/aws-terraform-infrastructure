@@ -27,14 +27,10 @@ variable "aws_region" {
   default     = "eu-west-1"
 }
 
-variable "aws_region" {
-  description = "AWS region to deploy resources"
-  default     = "us-east-1"
-}
-
 variable "instance_type" {
   description = "EC2 instance type"
-  default     = "t3.micro"
+  type        = string
+  default     = "t3.small"
 }
 
 variable "ssh_key_name" {
@@ -42,13 +38,19 @@ variable "ssh_key_name" {
   type        = string
 }
 
-variable "atlantis_repo" {
-  description = "Your GitHub repository for Atlantis to use"
-  type        = string
-}
-
 variable "sg_cidr_blocks" {
-  description = "CIDR blocks to allow traffic from"
+  description = "CIDR blocks allowed to reach Atlantis on port 80. GitHub sends webhooks from its published IP ranges, so restrict this where possible."
   type        = list(string)
   default     = ["0.0.0.0/0"]
+}
+
+variable "ssh_cidr_blocks" {
+  description = "CIDR blocks allowed to reach SSH on port 22. Ansible needs this to configure the server."
+  type        = list(string)
+}
+
+variable "additional_policy_arns" {
+  description = "Extra IAM policy ARNs to attach to the Atlantis instance role, for example a policy that allows managing EKS."
+  type        = list(string)
+  default     = []
 }

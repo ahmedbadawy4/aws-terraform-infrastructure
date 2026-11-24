@@ -4,8 +4,8 @@ resource "aws_iam_role" "atlantis_role" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
       Principal = {
         Service = "ec2.amazonaws.com"
       }
@@ -31,6 +31,13 @@ resource "aws_iam_role_policy" "atlantis_policy" {
       }
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "additional" {
+  for_each = toset(var.additional_policy_arns)
+
+  role       = aws_iam_role.atlantis_role.name
+  policy_arn = each.value
 }
 
 resource "aws_iam_instance_profile" "atlantis_profile" {

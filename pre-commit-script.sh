@@ -1,16 +1,13 @@
-#! /bin/bash
+#!/usr/bin/env bash
+# Runs the pre-commit hooks one folder at a time for each file type, then once for the whole repo.
+# A failing folder does not stop the loop, so every folder gets reported.
+set -u
 
- find . -type f -name '*.tf*' -not -path '*/.*' | sed -r 's|/[^/]+$||' | sort | uniq | sed 's/$/\/*/' | sed 's/^..//' | while read -r line ; do
- echo "Processing directory: $line"
- pre-commit run --files $line
- done
+for pattern in '*.tf*' '*.yaml' '*.hcl'; do
+  find . -type f -name "$pattern" -not -path '*/.*' -exec dirname {} \; | sort -u | while read -r dir; do
+    echo "Processing directory: ${dir#./}"
+    find "${dir#./}" -maxdepth 1 -type f -print0 | xargs -0 pre-commit run --files
+  done
+done
 
- find . -type f -name '*.yaml' -not -path '*/.*' | sed -r 's|/[^/]+$||' | sort | uniq | sed 's/$/\/*/' | sed 's/^..//' | while read -r line ; do
-  echo "Processing directory: $line"
-   pre-commit run --files $line
-    done
- find . -type f -name '*.hcl' -not -path '*/.*' | sed -r 's|/[^/]+$||' | sort | uniq | sed 's/$/\/*/' | sed 's/^..//' | while read -r line ; do
-  echo "Processing directory: $line"
-   pre-commit run --files $line
-    done
 pre-commit run --all-files

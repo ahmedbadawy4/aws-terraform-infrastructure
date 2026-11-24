@@ -1,11 +1,11 @@
 name: infra CI/CD Pipeline
-# this will be the name of the run in the Actions tab ex: deploy-eks-on-dev-from-branch-main
-run-name: ${{ github.event_name == 'workflow_dispatch' && format('#deploy-eks-on-{0}-from-branch-{3}', inputs.infra_path, github.ref_name) || '' }} 
+# Name of the run in the Actions tab, for example: terragrunt-plan-aws/dev/vpc-from-main
+run-name: ${{ format('terragrunt-{0}-{1}-from-{2}', inputs.action, inputs.infra_path, github.ref_name) }}
 on:
   workflow_dispatch:
     inputs:
       infra_path:
-        description: 'target environment'
+        description: 'Terragrunt folder to run'
         type: choice
         options:
           - 'aws/dev/vpc'
@@ -13,32 +13,66 @@ on:
           - 'aws/prod/vpc'
           - 'aws/prod/eks'
         required: true
-        
-permissions: read-all
+      action:
+        description: 'plan, or apply (apply runs only from the main branch)'
+        type: choice
+        options:
+          - 'plan'
+          - 'apply'
+        default: 'plan'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write # needed to get AWS credentials through OIDC
+
+# One run at a time for each folder, so two runs never fight over the same state lock
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.inputs.infra_path }} # concurrency group to prevent multiple runs of the same workflow
+  group: ${{ github.workflow }}-${{ inputs.infra_path }}
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: "1.4.6"
+  TERRAGRUNT_VERSION: "v0.67.14"
+  TERRAGRUNT_NON_INTERACTIVE: "true"
 
 jobs:
   terragrunt:
-    name: Terraform Plan
-    runs-on: ubuntu-latest  # should runs on GitHub-hosted runner
-    env:
-      TERRAGRUNT_PATH: ${{ github.event.inputs.infra_path }}
+    name: Terragrunt ${{ inputs.action }}
+    # Apply is allowed only from the main branch. Plan can run from any branch.
+    if: ${{ inputs.action == 'plan' || github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    # Two GitHub environments, dev and prod. Add required reviewers to prod to approve its runs.
+    environment: ${{ startsWith(inputs.infra_path, 'aws/prod') && 'prod' || 'dev' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.4.6
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
       - name: Install Terragrunt
         run: |
-          TG_VERSION=$(curl -s https://api.github.com/repos/gruntwork-io/terragrunt/releases/latest | jq -r .tag_name)
-          curl -L https://github.com/gruntwork-io/terragrunt/releases/download/$TG_VERSION/terragrunt_linux_amd64 -o /usr/local/bin/terragrunt
-          chmod +x /usr/local/bin/terragrunt
-      - name: Initialize and run Terragrunt
+          BASE_URL="https://github.com/gruntwork-io/terragrunt/releases/download/${TERRAGRUNT_VERSION}"
+          curl -fsSL -o terragrunt "${BASE_URL}/terragrunt_linux_amd64"
+          curl -fsSL -o SHA256SUMS "${BASE_URL}/SHA256SUMS"
+          EXPECTED=$(grep -E '[ *]terragrunt_linux_amd64$' SHA256SUMS | cut -d ' ' -f 1)
+          echo "${EXPECTED}  terragrunt" | sha256sum --check
+          sudo install -m 0755 terragrunt /usr/local/bin/terragrunt
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Run Terragrunt
+        working-directory: ${{ inputs.infra_path }}
+        env:
+          ACTION: ${{ inputs.action }}
         run: |
-          cd $TERRAGRUNT_PATH
           terragrunt init
-          terragrunt apply --auto-approve
-        shell: bash
+          if [ "${ACTION}" = "apply" ]; then
+            terragrunt apply -auto-approve
+          else
+            terragrunt plan
+          fi

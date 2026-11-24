@@ -1,39 +1,39 @@
 ---
 cluster_name: "shared"
+cluster_version: "1.35"
 ami_type: "AL2023_x86_64_STANDARD"
 instance_types: ["m5.xlarge"]
 min_size: 2
 max_size: 4
 desired_size: 2
-variable "cluster_version: "1.31"
 authentication_mode: "API_AND_CONFIG_MAP"
 
 ## Access scopes ##
 access_entries:
-  - name: "admin"
-    kubernetes_groups: 
+  admin:
+    kubernetes_groups:
       - "masters"
     principal_arn: "<admin-iam-role-arn>"
     policy_associations:
-      - name: "admin_access"
-        policy_arn: "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterPolicy"
+      admin_access:
+        policy_arn: "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
         access_scope:
-          namespaces: 
+          namespaces:
             - "kube-system"
             - "default"
             - "development"
             - "staging"
             - "production"
           type: "namespace"
-  - name: "developer"
-    kubernetes_groups: 
+  developer:
+    kubernetes_groups:
       - "dev-group"
     principal_arn: "<dev-iam-role-arn>"
     policy_associations:
-      - name: "dev_access"
+      dev_access:
         policy_arn: "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy"
         access_scope:
-          namespaces: 
+          namespaces:
             - "development"
             - "staging"
           type: "namespace"

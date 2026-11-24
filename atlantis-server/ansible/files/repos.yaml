@@ -1,0 +1,37 @@
+# Atlantis server-side repo config. The playbook copies this file to the server.
+# Terragrunt does not ship in the Atlantis image, so the playbook mounts it into the container.
+repos:
+  - id: /.*/
+    workflow: terragrunt
+    apply_requirements:
+      - approved
+      - mergeable
+
+workflows:
+  terragrunt:
+    plan:
+      steps:
+        - env:
+            name: TERRAGRUNT_TFPATH
+            command: 'echo "${ATLANTIS_TERRAFORM_DISTRIBUTION}${ATLANTIS_TERRAFORM_VERSION}"'
+        - env:
+            name: TERRAGRUNT_NON_INTERACTIVE
+            value: "true"
+        - env:
+            name: TF_IN_AUTOMATION
+            value: "true"
+        - run:
+            command: terragrunt plan -input=false -no-color -out $PLANFILE
+            output: strip_refreshing
+    apply:
+      steps:
+        - env:
+            name: TERRAGRUNT_TFPATH
+            command: 'echo "${ATLANTIS_TERRAFORM_DISTRIBUTION}${ATLANTIS_TERRAFORM_VERSION}"'
+        - env:
+            name: TERRAGRUNT_NON_INTERACTIVE
+            value: "true"
+        - env:
+            name: TF_IN_AUTOMATION
+            value: "true"
+        - run: terragrunt apply -input=false $PLANFILE

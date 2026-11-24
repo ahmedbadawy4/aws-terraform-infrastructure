@@ -1,0 +1,14 @@
+# Copy this file to terraform.tfvars and replace the placeholders.
+# terraform.tfvars is git-ignored and Terraform loads it automatically.
+
+environment  = "dev"
+ssh_key_name = "<ec2-key-pair-name>"
+
+# Your own IP range for SSH, for example "203.0.113.10/32".
+ssh_cidr_blocks = ["<your-ip>/32"]
+
+# Optional values, shown with their defaults.
+# aws_region             = "eu-west-1"
+# instance_type          = "t3.small"
+# sg_cidr_blocks         = ["0.0.0.0/0"]
+# additional_policy_arns = []
