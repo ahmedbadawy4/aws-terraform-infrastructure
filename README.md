@@ -170,3 +170,7 @@ This is a reference setup. These are design limits you should know before you re
 - The instance role allows `s3:*`, `dynamodb:*` and `ec2:*` on all resources. It has no EKS or IAM permissions, so add them with `additional_policy_arns` (or switch to assuming roles) before Atlantis can manage the cluster. Narrow the wildcards for any real use.
 - The server config applies to every repository in `ATLANTIS_REPO_ALLOWLIST`. Keep that list short.
 - The Atlantis version, Terraform version and Terragrunt version are pinned in the playbook. Update them together with the pipelines.
+
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE).

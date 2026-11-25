@@ -29,11 +29,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
-      - uses: terraform-linters/setup-tflint@v6
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6
       - name: Install Terragrunt
         run: |
           BASE_URL="https://github.com/gruntwork-io/terragrunt/releases/download/${TERRAGRUNT_VERSION}"
@@ -52,7 +52,7 @@ jobs:
           echo "${EXPECTED}  ${ARCHIVE}" | sha256sum --check
           tar -xzf "${ARCHIVE}" terraform-docs
           sudo install -m 0755 terraform-docs /usr/local/bin/terraform-docs
-      - uses: pre-commit/action@v3.0.1
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
         with:
           # A pull request checks only the files it changes. A push to main and a
           # manual run check every file.
